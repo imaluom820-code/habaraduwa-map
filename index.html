@@ -11,65 +11,85 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
-        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
         .info-panel {
             position: absolute; top: 10px; left: 50px; z-index: 1000;
-            background: white; padding: 10px; border-radius: 5px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            background: white; padding: 15px; border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.3); border: 2px solid #007bff;
         }
+        h3 { margin: 0 0 5px 0; color: #333; }
+        p { margin: 0; color: #666; font-size: 14px; }
     </style>
 </head>
 <body>
 
 <div class="info-panel">
     <h3>Habaraduwa Drainage Analysis</h3>
-    <p>Red = Poor Condition | Blue = Good Condition</p>
+    <p><b>Status:</b> Live Data from Supabase</p>
+    <p>Lines are shown in <span style="color:red; font-weight:bold;">RED</span> for visibility.</p>
 </div>
 
 <div id="map"></div>
 
 <script>
-    // YOUR PROVIDED KEYS
+    // YOUR SPECIFIC KEYS
     const SUPABASE_URL = 'https://prlorecmrvouzbqvmojw.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_qVGu1b0lT-cPHyClk7ctag_HgIL3O0X';
 
-    // 1. Initialize the map centered on Habaraduwa
+    // 1. Initialize map (Center of Habaraduwa)
     const map = L.map('map').setView([6.00, 80.29], 14);
 
-    // 2. Add OpenStreetMap background
+    // 2. Add Map Tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    // 3. Connect to Supabase
+    // 3. Setup Supabase
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     async function loadData() {
-        // Fetching geom as GeoJSON so the map understands it
+        console.log("Attempting to load data...");
+
+        // NOTE: If your table is NOT named 'drains', change the name below!
         const { data, error } = await _supabase
-            .from('drains')
+            .from('drains') 
             .select('*, geom:st_asgeojson(geom)');
 
         if (error) {
-            console.error('Error loading data:', error);
+            console.error('Database Error:', error.message);
             return;
         }
 
-        if (data) {
+        if (data && data.length > 0) {
+            console.log("Data found!", data.length, "lines loading...");
+            
+            const featureGroup = L.featureGroup();
+
             data.forEach(item => {
-                const geojsonFeature = JSON.parse(item.geom);
-                
-                L.geoJSON(geojsonFeature, {
-                    style: function() {
-                        return {
-                            color: item.condition === 'Poor' ? 'red' : 'blue',
-                            weight: 5,
-                            opacity: 0.8
-                        };
-                    }
-                }).bindPopup("Condition: " + item.condition).addTo(map);
+                try {
+                    const geojsonFeature = JSON.parse(item.geom);
+                    const layer = L.geoJSON(geojsonFeature, {
+                        style: {
+                            color: 'red',   // High visibility red
+                            weight: 8,     // Extra thick
+                            opacity: 0.9
+                        }
+                    }).bindPopup("Condition: " + (item.condition || "Unknown"));
+                    
+                    layer.addTo(featureGroup);
+                } catch (e) {
+                    console.error("Error parsing geometry for item:", item.id);
+                }
             });
+
+            featureGroup.addTo(map);
+            
+            // This centers the map automatically so you don't have to search for the lines
+            map.fitBounds(featureGroup.getBounds());
+            
+        } else {
+            console.warn("No data returned. Check your Table Name and RLS Policies.");
         }
     }
 
