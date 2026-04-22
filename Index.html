@@ -1,48 +1,79 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Habaraduwa Drainage Project</title>
+    <title>Habaraduwa Drainage System</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <style>
-        body { margin: 0; padding: 0; }
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        .info-panel {
+            position: absolute; top: 10px; left: 50px; z-index: 1000;
+            background: white; padding: 10px; border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        }
     </style>
 </head>
 <body>
+
+<div class="info-panel">
+    <h3>Habaraduwa Drainage Analysis</h3>
+    <p>Red = Poor Condition | Blue = Good Condition</p>
+</div>
+
 <div id="map"></div>
+
 <script>
-    const SUPABASE_URL = 'https://prlorecmrvouzbqvmojw.supabase.co/rest/v1/';
+    // YOUR PROVIDED KEYS
+    const SUPABASE_URL = 'https://prlorecmrvouzbqvmojw.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_qVGu1b0lT-cPHyClk7ctag_HgIL3O0X';
 
-    // 1. Setup the Map (Centered on Habaraduwa)
+    // 1. Initialize the map centered on Habaraduwa
     const map = L.map('map').setView([6.00, 80.29], 14);
 
-    // 2. Add the Map background (Free)
+    // 2. Add OpenStreetMap background
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
+        attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    const supabase = libsupabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // 3. Connect to Supabase
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    async function loadDrains() {
-        // 3. Get data from Supabase
-        const { data, error } = await supabase.from('drains').select('*');
-        
+    async function loadData() {
+        // Fetching geom as GeoJSON so the map understands it
+        const { data, error } = await _supabase
+            .from('drains')
+            .select('*, geom:st_asgeojson(geom)');
+
+        if (error) {
+            console.error('Error loading data:', error);
+            return;
+        }
+
         if (data) {
-            data.forEach(d => {
-                // Leaflet expects coordinates differently, so we use a simple parser
-                // This will draw your lines on the map
-                const geoData = JSON.parse(d.geom); 
-                L.geoJSON(geoData, {
-                    style: { color: d.condition === 'Poor' ? 'red' : 'blue', weight: 4 }
-                }).addTo(map);
+            data.forEach(item => {
+                const geojsonFeature = JSON.parse(item.geom);
+                
+                L.geoJSON(geojsonFeature, {
+                    style: function() {
+                        return {
+                            color: item.condition === 'Poor' ? 'red' : 'blue',
+                            weight: 5,
+                            opacity: 0.8
+                        };
+                    }
+                }).bindPopup("Condition: " + item.condition).addTo(map);
             });
         }
     }
 
-    loadDrains();
+    loadData();
 </script>
 </body>
 </html>
