@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Habaraduwa Drainage Project</title>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+    // YOUR SETTINGS
+    const SUPABASE_URL = 'PASTE_YOUR_SUPABASE_URL_HERE';
+    const SUPABASE_KEY = 'PASTE_YOUR_ANON_KEY_HERE';
+    const MAPBOX_TOKEN = 'PASTE_YOUR_MAPBOX_TOKEN_HERE';
+
+    mapboxgl.accessToken = MAPBOX_TOKEN;
+    const map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/satellite-v9',
+        center: [80.29, 6.00], // Habaraduwa coordinates
+        zoom: 14
+    });
+
+    const supabase = libsupabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    map.on('load', async () => {
+        const { data } = await supabase.from('drains').select('*');
+        
+        const geojson = {
+            type: 'FeatureCollection',
+            features: data.map(d => ({
+                type: 'Feature',
+                geometry: JSON.parse(d.geom), // This assumes your geom is ready
+                properties: { condition: d.condition }
+            }))
+        };
+
+        map.addSource('habaraduwa-data', { type: 'geojson', data: geojson });
+        map.addLayer({
+            id: 'drains-layer',
+            type: 'line',
+            source: 'habaraduwa-data',
+            paint: {
+                'line-width': 4,
+                'line-color': ['match', ['get', 'condition'], 'Poor', '#ff0000', '#00ff00']
+            }
+        });
+    });
+</script>
+</body>
+</html>
