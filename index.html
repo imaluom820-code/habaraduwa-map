@@ -68,7 +68,7 @@
 
             data.forEach(item => {
                 try {
-                    const geojsonFeature = JSON.parse(item.geom);
+                    const geojsonFeature = JSON.parse(item.geometry);
                     const layer = L.geoJSON(geojsonFeature, {
                         style: {
                             color: 'red',   // High visibility red
