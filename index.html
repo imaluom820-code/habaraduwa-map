@@ -54,7 +54,7 @@
         // NOTE: If your table is NOT named 'drains', change the name below!
         const { data, error } = await _supabase
             .from('drains') 
-            .select('*, geom:st_asgeojson(geom)');
+            .select('*, geometry:st_asgeojson(geometry)');
 
         if (error) {
             console.error('Database Error:', error.message);
